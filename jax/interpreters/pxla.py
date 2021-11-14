@@ -1627,7 +1627,10 @@ def lower_mesh_computation(
     donated_invars: Sequence[bool],
     spmd_lowering: bool,
     local_in_untiled_avals: Sequence[core.ShapedArray],
-    tile_by_mesh_axes: bool):
+    tile_by_mesh_axes: bool,
+    positional_semantics):
+  from ..experimental.maps import _PositionalSemantics
+
   assert not mesh.empty
   backend = xb.get_device_backend(mesh.devices.flat[0])
 
@@ -1645,9 +1648,16 @@ def lower_mesh_computation(
 
   # 1. Trace to jaxpr and preprocess/verify it
   # Note that we tile by the local axis sizes, but use global axis sizes for named_shape
-  in_tiled_avals = [tile_aval_nd(global_axis_sizes, aval_in_axes, aval,
-                                 tiling_sizes=local_axis_sizes)
-                    for aval, aval_in_axes in safe_zip(local_in_untiled_avals, in_axes)]
+  # TODO(yashkatariya): While lifting the non-contiguous mesh requirement pass
+  # in only the global avals so that such hacks are not needed.
+  in_tiled_avals = []
+  for aval, aval_in_axes, ps in safe_zip(local_in_untiled_avals, in_axes, positional_semantics):
+    if ps == _PositionalSemantics.GLOBAL:
+      axis_size = global_axis_sizes
+    else:
+      axis_size = local_axis_sizes
+    in_tiled_avals.append(tile_aval_nd(global_axis_sizes, aval_in_axes, aval,
+                                       tiling_sizes=axis_size))
   if spmd_lowering:
     # TODO: Consider handling xmap's 'vectorize' in here. We can vmap once instead of vtile twice!
     if tile_by_mesh_axes:

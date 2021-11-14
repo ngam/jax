@@ -733,7 +733,7 @@ def make_xmap_callable(fun: lu.WrappedFun,
         f, name, resource_env.physical_mesh,
         mesh_in_axes, mesh_out_axes, donated_invars,
         use_spmd_lowering, in_avals,
-        tile_by_mesh_axes=True)
+        True, [positional_semantics for _ in range(len(in_axes))])
   else:
     return xla.lower_xla_callable(
         f, None, backend, name, donated_invars, *((a, None) for a in in_avals))
